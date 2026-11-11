@@ -1,6 +1,14 @@
 # Scoutline
 
-A React + TypeScript frontend for scouting VEX V5 teams, with a searchable snapshot of team identities and robot skills standings.
+Scoutline is a quick VEX V5 team lookup tool. Search a team number, compare it against the included skills snapshot, and optionally connect your RobotEvents API key to see live event details.
+
+## Use the app
+
+1. Open the app in a browser.
+2. Enter a team number such as `8737M`.
+3. If the team appears in the bundled standings snapshot, you can review rank, skills scores, and location information right away.
+4. If you want more detail, paste your RobotEvents API key and the app will fetch live information from RobotEvents, including awards, events, match records, and skills results.
+5. Reloading the page clears the in-memory API key, so the app does not keep your key after you leave.
 
 ## Run locally
 
@@ -9,24 +17,39 @@ npm install
 npm run dev
 ```
 
-Create a production build with `npm run build`.
+Create a production build with:
 
-## Publish on GitHub Pages
+```sh
+npm run build
+```
 
-The included GitHub Actions workflow builds and deploys the site when changes are pushed to `main` (or when manually started from the Actions tab). In the repository's **Settings → Pages**, set the build and deployment source to **GitHub Actions**. After the first successful deployment, the site will be available at:
+## GitHub Pages deployment
+
+This repository includes a GitHub Actions workflow that builds and deploys the site when changes are pushed to `main` or when the workflow is started manually from the Actions tab.
+
+To publish the site:
+
+1. Open the repository in GitHub.
+2. Go to **Settings → Pages**.
+3. Set the build and deployment source to **GitHub Actions**.
+4. After the first successful deployment, the site is available at:
 
 `https://alijahbarta-jpg.github.io/scouting-for-vex-v5/`
 
-The Vite configuration applies the repository subpath for GitHub Actions builds and keeps the root path for local development.
+The Vite config keeps local development on the root URL and uses the repository subpath when deployed to GitHub Pages.
 
-## Skills standings data
+## Data sources
 
-The dashboard loads `public/skills-standings.csv`, the standings export supplied with this project. Search supports the teams in that snapshot; the example lookup is `8737M`. The displayed latest-score date is taken from the timestamps in the CSV.
+### Skills snapshot
 
-This is a static snapshot, not an automatically refreshed live feed. To update the standings, replace the CSV with a current export and redeploy the site. The file contains rankings and robot skills scores, but not team awards, tournament placements, event participation, or match records, so those results are not fabricated or shown.
+The app loads `public/skills-standings.csv`, which is a bundled snapshot of VEX team standings and skills data included with the project. The example lookup `8737M` is included so you can test the app immediately.
 
-## Live RobotEvents lookup
+This snapshot is intentionally static. To refresh it, replace the CSV file with a newer export and redeploy the site. This file includes ranking and skills information, but it does not include team awards, competition placements, match records, or event participation.
 
-Users can optionally paste their own RobotEvents API key into the dashboard. The app validates it against the public V5RC program endpoint, then queries the official `https://events.vex.com/api/v2` API for a team's profile, events, awards, skills runs, match scores, and event rankings. The API key remains in page memory only and is sent directly from the browser to RobotEvents; it is not written to browser storage or sent to this site's server. Reloading or closing the page clears it.
+### Live RobotEvents lookup
 
-This requires a valid API key from the user's RobotEvents account and an internet connection. If the key is not connected, the CSV skills snapshot remains available. Do not paste API keys into a shared or untrusted deployment; client-side keys are visible to scripts running in that browser session.
+If you connect a valid RobotEvents API key, the app validates it against the public V5RC program endpoint and then queries the official `https://events.vex.com/api/v2` API for a team profile, events, awards, skills runs, match scores, and rankings.
+
+Your key stays in page memory only and is sent directly from the browser to RobotEvents. It is not saved to browser storage or sent to this site's server. Closing or reloading the page clears it.
+
+This requires a working internet connection and a valid RobotEvents account. If no key is connected, the local CSV snapshot remains available. Do not paste API keys into a shared or untrusted browser session, because scripts running in that page can read them while they are active.

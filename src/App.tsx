@@ -219,8 +219,8 @@ function App() {
           <section className="page-heading">
             <div>
               <div className="eyebrow"><span className="eyebrow-line" /> VEX V5 COMPETITION INTELLIGENCE</div>
-              <h1>Know your <span>competition.</span></h1>
-              <p className="page-intro">Search the supplied skills standings or connect RobotEvents for complete team history.</p>
+              <h1>Look up a team in <span>seconds.</span></h1>
+              <p className="page-intro">Search the built-in skills snapshot or connect RobotEvents for the full picture on a team.</p>
             </div>
           </section>
 
@@ -238,7 +238,7 @@ function App() {
               <span className="search-hint">TEAM NUMBER</span>
             </div>
             <button className="search-button" type="submit" disabled={(loading || Boolean(loadError)) && !apiKey || apiLoading}>
-              {apiLoading ? "Fetching" : loading ? "Loading" : "Find team"} <ArrowRight size={16} />
+              {apiLoading ? "Fetching" : loading ? "Loading" : "Look it up"} <ArrowRight size={16} />
             </button>
           </form>
 
@@ -246,14 +246,14 @@ function App() {
             <div className="api-key-heading">
               <div className="api-key-icon"><KeyRound size={16} /></div>
               <div>
-                <strong>Connect your RobotEvents API key</strong>
-                <span>Fetch live team details, awards, skills, events, and match records.</span>
+                <strong>Need live team details?</strong>
+                <span>Paste your RobotEvents API key to unlock awards, skills runs, match records, and event history.</span>
               </div>
               {apiKeyStatus && <span className="api-connected"><ShieldCheck size={14} /> {apiKeyStatus}</span>}
             </div>
             {apiKey ? (
               <div className="api-key-connected-row">
-                <span>Your key is held in this page's memory and sent directly to events.vex.com.</span>
+                <span>Your key is stored only in this page's memory and sent directly to RobotEvents for live lookups.</span>
                 <button className="text-link" type="button" onClick={disconnectApiKey}>Disconnect key</button>
               </div>
             ) : (
@@ -272,7 +272,7 @@ function App() {
               </form>
             )}
             <p className="api-key-note">
-              Your key stays in this page's memory and is sent directly to RobotEvents; it is not saved in browser storage or sent to this site's server. Anyone with access to this page's scripts can inspect it while in use.{" "}
+              This app keeps the key in memory only while the page is open, then sends it directly to RobotEvents. It is not saved in browser storage or sent to this site's server. Anyone with access to this page's scripts can inspect it while it is active.{" "}
               <a href="https://events.vex.com/api/v2" target="_blank" rel="noreferrer">Get a key from RobotEvents <ExternalLink size={11} /></a>
             </p>
             {apiKeyError && <p className="api-key-error" role="alert">{apiKeyError}</p>}
@@ -472,9 +472,9 @@ function App() {
 
                 <section className="panel data-limits-panel">
                   <div className="panel-heading">
-                    <div><span className="panel-kicker">DATA INCLUDED</span><h3>Skills standings only</h3></div>
+                    <div><span className="panel-kicker">DATA INCLUDED</span><h3>Snapshot view</h3></div>
                   </div>
-                  <p>This file contains team names, locations, ranking and skills scores. It does not include awards, tournament placements, event participation or match records.</p>
+                  <p>This CSV includes team names, locations, ranks, and skills scores. It does not include awards, event placements, participation history, or match records. Connect RobotEvents for the full competition picture.</p>
                   <a className="text-link" href={`https://events.vex.com/teams/V5RC/${encodeURIComponent(team.teamNumber)}`} target="_blank" rel="noreferrer">
                     Open VEX team page <ExternalLink size={14} />
                   </a>
@@ -487,9 +487,9 @@ function App() {
                   <a className="text-link" href={`${import.meta.env.BASE_URL}skills-standings.csv`} download>Download file <ArrowRight size={14} /></a>
                 </div>
                 <div className="source-details">
-                  <span>{standings.length.toLocaleString()} teams</span>
+                  <span>{standings.length.toLocaleString()} teams in this snapshot</span>
                   <span>Latest recorded score: {formatSnapshotDate(snapshotDate)}</span>
-                  <span>Replace <code>public/skills-standings.csv</code> with a new export to refresh this snapshot.</span>
+                  <span>Replace <code>public/skills-standings.csv</code> with a newer export to refresh the data.</span>
                 </div>
               </section>
 

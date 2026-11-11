@@ -489,7 +489,6 @@ function App() {
                 <div className="source-details">
                   <span>{standings.length.toLocaleString()} teams in this snapshot</span>
                   <span>Latest recorded score: {formatSnapshotDate(snapshotDate)}</span>
-                  <span>Replace <code>public/skills-standings.csv</code> with a newer export to refresh the data.</span>
                 </div>
               </section>
 

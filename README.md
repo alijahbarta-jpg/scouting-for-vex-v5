@@ -2,6 +2,10 @@
 
 Scoutline is a quick VEX V5 team lookup tool. Search a team number, compare it against the included skills snapshot, and optionally connect your RobotEvents API key to see live event details.
 
+The webapp is available at:
+
+`https://alijahbarta-jpg.github.io/scouting-for-vex-v5/`
+
 ## Use the app
 
 1. Open the app in a browser.
@@ -22,27 +26,6 @@ Create a production build with:
 ```sh
 npm run build
 ```
-
-## Project layout
-
-- `src/` contains the React application, styles, CSV parser, and RobotEvents API client.
-- `public/skills-standings.csv` is the bundled team standings snapshot.
-- `.github/workflows/deploy.yml` builds and deploys the site to GitHub Pages.
-
-## GitHub Pages deployment
-
-This repository includes a GitHub Actions workflow that builds and deploys the site when changes are pushed to `main` or when the workflow is started manually from the Actions tab.
-
-To publish the site:
-
-1. Open the repository in GitHub.
-2. Go to **Settings → Pages**.
-3. Set the build and deployment source to **GitHub Actions**.
-4. After the first successful deployment, the site is available at:
-
-`https://alijahbarta-jpg.github.io/scouting-for-vex-v5/`
-
-The Vite config keeps local development on the root URL and uses the repository subpath when deployed to GitHub Pages.
 
 ## Data sources
 

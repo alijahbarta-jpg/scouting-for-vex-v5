@@ -73,7 +73,9 @@ export function parseSkillsStandings(csv: string): SkillsStandingsData {
     throw new Error("The skills standings CSV is empty.");
   }
 
-  const headers = headerRow.map((header, index) => (index === 0 ? header.replace(/^\uFEFF/, "") : header).trim());
+  const headers = headerRow.map((header, index) =>
+    (index === 0 ? header.replace(/^\uFEFF/, "") : header).trim(),
+  );
   const requiredFields = [
     "Rank",
     "Score",
@@ -97,7 +99,9 @@ export function parseSkillsStandings(csv: string): SkillsStandingsData {
   const seenTeams = new Set<string>();
   const timestamps: string[] = [];
   const rows = dataRows.map((values, index): SkillsStanding => {
-    const record = Object.fromEntries(headers.map((header, column) => [header, values[column] ?? ""]));
+    const record = Object.fromEntries(
+      headers.map((header, column) => [header, values[column] ?? ""]),
+    );
     const rowNumber = index + 2;
     const teamNumber = record["Team Number"].trim().toUpperCase();
     if (!teamNumber || seenTeams.has(teamNumber)) {

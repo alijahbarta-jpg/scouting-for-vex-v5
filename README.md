@@ -13,7 +13,7 @@ Scoutline is a quick VEX V5 team lookup tool. Search a team number, compare it a
 ## Run locally
 
 ```sh
-npm install
+npm ci
 npm run dev
 ```
 
@@ -22,6 +22,12 @@ Create a production build with:
 ```sh
 npm run build
 ```
+
+## Project layout
+
+- `src/` contains the React application, styles, CSV parser, and RobotEvents API client.
+- `public/skills-standings.csv` is the bundled team standings snapshot.
+- `.github/workflows/deploy.yml` builds and deploys the site to GitHub Pages.
 
 ## GitHub Pages deployment
 

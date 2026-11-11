@@ -182,7 +182,9 @@ async function getAllPages<T>(
     results.push(...response.data);
     lastPage = response.meta?.last_page ?? 1;
     if (lastPage > MAX_PAGES) {
-      throw new RobotEventsError("This team's history exceeds the safe page limit. Refine the lookup or try again later.");
+      throw new RobotEventsError(
+        "This team's history exceeds the safe page limit. Refine the lookup or try again later.",
+      );
     }
   }
   return results;
@@ -234,7 +236,15 @@ export async function lookupRobotEventsTeam(token: string, teamNumber: string): 
 
   const recordByEvent = new Map<number, { wins: number; losses: number; ties: number }>();
   for (const match of matches) {
-    if (!match.scored || match.round === 1 || !match.event?.id || !match.alliances || match.alliances.length < 2) continue;
+    if (
+      !match.scored ||
+      match.round === 1 ||
+      !match.event?.id ||
+      !match.alliances ||
+      match.alliances.length < 2
+    ) {
+      continue;
+    }
     const teamAlliance = match.alliances.find((alliance) =>
       alliance.teams.some((entry) => entry.team?.id === team.id || entry.team?.name === team.number),
     );
@@ -250,24 +260,32 @@ export async function lookupRobotEventsTeam(token: string, teamNumber: string): 
 
   const rankingByEvent = new Map<number, ApiRanking>();
   for (const ranking of rankings) {
-    if (ranking.event?.id && (!rankingByEvent.has(ranking.event.id) || (ranking.rank ?? Infinity) < (rankingByEvent.get(ranking.event.id)?.rank ?? Infinity))) {
+    if (
+      ranking.event?.id &&
+      (!rankingByEvent.has(ranking.event.id) ||
+        (ranking.rank ?? Infinity) <
+          (rankingByEvent.get(ranking.event.id)?.rank ?? Infinity))
+    ) {
       rankingByEvent.set(ranking.event.id, ranking);
     }
   }
 
-  const tournaments = events.slice().sort((a, b) => Date.parse(b.start ?? "") - Date.parse(a.start ?? "")).map((event): LiveTournament => {
-    const record = recordByEvent.get(event.id) ?? { wins: 0, losses: 0, ties: 0 };
-    const ranking = rankingByEvent.get(event.id);
-    return {
-      id: event.id,
-      name: event.name,
-      location: formatLocation(event.location),
-      date: formatDate(event.start),
-      placement: ranking?.rank ? `#${ranking.rank}` : "—",
-      record: `${record.wins}–${record.losses}–${record.ties}`,
-      award: awardsByEvent.get(event.id)?.join(", "),
-    };
-  });
+  const tournaments = events
+    .slice()
+    .sort((a, b) => Date.parse(b.start ?? "") - Date.parse(a.start ?? ""))
+    .map((event): LiveTournament => {
+      const record = recordByEvent.get(event.id) ?? { wins: 0, losses: 0, ties: 0 };
+      const ranking = rankingByEvent.get(event.id);
+      return {
+        id: event.id,
+        name: event.name,
+        location: formatLocation(event.location),
+        date: formatDate(event.start),
+        placement: ranking?.rank ? `#${ranking.rank}` : "—",
+        record: `${record.wins}–${record.losses}–${record.ties}`,
+        award: awardsByEvent.get(event.id)?.join(", "),
+      };
+    });
 
   const teamProgramming = programmingScores.length ? Math.max(...programmingScores) : 0;
   const teamDriver = driverScores.length ? Math.max(...driverScores) : 0;

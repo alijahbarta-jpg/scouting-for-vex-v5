@@ -1495,6 +1495,13 @@ h1 > span {
   font-size: 8px;
 }
 
+.comparison-freshness a {
+  color: #5b7760;
+  font-weight: 600;
+  text-decoration-color: #cadbca;
+  text-underline-offset: 2px;
+}
+
 .comparison-table thead th small {
   display: block;
   margin-top: 4px;

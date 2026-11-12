@@ -11,7 +11,7 @@ The webapp is available at:
 1. Open the app in a browser.
 2. Search by team number or team name, then choose a suggestion or enter a team number directly.
 3. If the team appears in the bundled standings snapshot, you can review rank, skills scores, and location information right away.
-4. Use the **Team search** and **Compare teams** workspace tabs to switch between lookup/results and side-by-side comparisons. After a team is found, choose **Compare this team** to add it to the comparison and open that workspace. Compare up to four teams using snapshot standings, or connect VEXEvents and explicitly load live data for skills, event placements, match records, and awards. Calendar-year filters are based on event dates; the snapshot only provides the latest recorded score year, not a full historical archive.
+4. Use the **Team search** and **Compare teams** workspace tabs to switch between lookup/results and side-by-side comparisons. After a team is found, choose **Compare this team** to add it to the comparison and open that workspace. Compare up to four teams using snapshot standings, or connect VEXEvents and explicitly load live data for skills, event placements, match records, awards, and Scoutline-calculated match insights. Calendar-year filters are based on event dates; the snapshot only provides the latest recorded score year, not a full historical archive.
 5. If you want more detail, paste your VEXEvents API key and the app will fetch live information from VEXEvents, including awards, events, match records, and skills results.
 6. Reloading the page clears the in-memory API key, so the app does not keep your key after you leave.
 
@@ -40,12 +40,16 @@ npm run build
 
 The app loads `public/skills-standings.csv`, which is a bundled snapshot of VEX team standings and skills data included with the project. The example lookup `8737M` is included so you can test the app immediately.
 
-This snapshot is intentionally static. To refresh it, replace the CSV file with a newer export and redeploy the site. This file includes ranking and skills information, but it does not include team awards, competition placements, match records, or event participation.
+GitHub Actions refreshes the snapshot every six hours from the official VEXEvents V5RC API, then commits the updated CSV and deploys the site. It collects completed events in the current season, keeps each team's highest autonomous and driver scores, and orders teams by combined best score. Configure a repository Actions secret named `VEX_EVENTS_API_TOKEN` with an authorized VEXEvents API token (Repository **Settings → Secrets and variables → Actions**). The token is only used by the scheduled build to call VEXEvents; it is not included in the CSV or deployed app. You can also trigger a refresh with **Actions → Deploy to GitHub Pages → Run workflow**.
+
+The refresh rejects invalid responses and unexpectedly small snapshots, and writes the CSV atomically, so a failed refresh does not replace the existing snapshot. If VEXEvents does not provide an individual skill-run timestamp, that run is dated using its event date. This standings snapshot includes rank and skills data, but not team awards, placements, match records, or event participation.
 
 ### Live VEXEvents lookup
 
 If you connect a valid VEXEvents API key, the app validates it against the public V5RC program endpoint and then queries the official `https://events.vex.com/api/v2` API for a team profile, events, awards, skills runs, match scores, and rankings.
 
 Your key stays in page memory only and is sent directly from the browser to VEXEvents. It is not saved to browser storage or sent to this site's server. Closing or reloading the page clears it.
+
+Live comparisons include average match margin, average match score, relative score consistency, recent form across up to five scored matches, and the number of scored matches available. Consistency is calculated as `100 / (1 + score standard deviation / average score)`, so higher values mean less score variation. These are transparent Scoutline calculations over the selected calendar-year range, inspired by performance factors discussed in [Vex-Rank](https://github.com/vex-rank-team/Vex-Rank). They are not official VEX rankings and are not the Vex-Rank VCR rating. Scoutline does not currently consume Vex-Rank's API: its public test worker's CORS allowlist does not include Scoutline's GitHub Pages origin, and relying on a test service would make comparisons fragile.
 
 This requires a working internet connection and a valid VEXEvents account. If no key is connected, the local CSV snapshot remains available. Do not paste API keys into a shared or untrusted browser session, because scripts running in that page can read them while they are active.

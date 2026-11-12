@@ -41,6 +41,7 @@ interface ComparisonMetric {
   getValue: (team: ComparisonTeam) => number | null;
   format: (value: number) => string;
   higherIsBetter: boolean;
+  showBest?: boolean;
 }
 
 interface ComparisonTeam {
@@ -113,6 +114,12 @@ function formatLiveCoverage(team: ComparisonTeam, year: string): string {
   const skills = team.live.skillsByYear[year];
   const scoredMatches = yearEvents.reduce((total, event) => total + event.matches.length, 0);
   return `${yearEvents.length} events · ${skills?.programmingRuns ?? 0} programming / ${skills?.driverRuns ?? 0} driver runs · ${scoredMatches} scored matches`;
+}
+
+function comparisonMatches(team: ComparisonTeam, year: string) {
+  return (team.live?.tournaments ?? [])
+    .filter((event) => year === "all" || event.year === year)
+    .flatMap((event) => [...event.matches].reverse());
 }
 
 function SkillBar({
@@ -425,6 +432,59 @@ function App() {
       },
       format: (value) => `${value.toFixed(1)}%`,
       higherIsBetter: true,
+    },
+    {
+      label: "Average match margin",
+      getValue: (team) => {
+        const matches = comparisonMatches(team, comparisonYear);
+        return matches.length > 0
+          ? matches.reduce((total, match) => total + match.teamScore - match.opponentScore, 0) / matches.length
+          : null;
+      },
+      format: (value) => `${value > 0 ? "+" : ""}${value.toFixed(1)} pts`,
+      higherIsBetter: true,
+    },
+    {
+      label: "Average match score",
+      getValue: (team) => {
+        const matches = comparisonMatches(team, comparisonYear);
+        return matches.length > 0
+          ? matches.reduce((total, match) => total + match.teamScore, 0) / matches.length
+          : null;
+      },
+      format: (value) => `${value.toFixed(1)} pts`,
+      higherIsBetter: true,
+    },
+    {
+      label: "Score consistency",
+      getValue: (team) => {
+        const scores = comparisonMatches(team, comparisonYear).map((match) => match.teamScore);
+        if (scores.length === 0) return null;
+        const average = scores.reduce((total, score) => total + score, 0) / scores.length;
+        if (average === 0) return null;
+        const variance = scores.reduce((total, score) => total + (score - average) ** 2, 0) / scores.length;
+        return 100 / (1 + Math.sqrt(variance) / average);
+      },
+      format: (value) => `${value.toFixed(1)}%`,
+      higherIsBetter: true,
+    },
+    {
+      label: "Recent form (last 5)",
+      getValue: (team) => {
+        const recentMatches = comparisonMatches(team, comparisonYear).slice(0, 5);
+        return recentMatches.length > 0
+          ? (recentMatches.filter((match) => match.result === "Win").length / recentMatches.length) * 100
+          : null;
+      },
+      format: (value) => `${value.toFixed(1)}%`,
+      higherIsBetter: true,
+    },
+    {
+      label: "Scored matches",
+      getValue: (team) => team.live ? comparisonMatches(team, comparisonYear).length : null,
+      format: (value) => `${value} matches`,
+      higherIsBetter: true,
+      showBest: false,
     },
   ];
   const comparisonYears = [...new Set([
@@ -1291,6 +1351,13 @@ function App() {
                 </span>
               )}
             </div>
+            {comparisonView === "skills" && comparisonSource === "live" && (
+              <p className="comparison-freshness">
+                Match insights are Scoutline calculations inspired by performance factors discussed in{" "}
+                <a href="https://github.com/vex-rank-team/Vex-Rank" target="_blank" rel="noreferrer">Vex-Rank</a>;
+                they are not official VEX rankings or VCR ratings. Recent form uses up to five most recent scored matches.
+              </p>
+            )}
             {comparisonTeams.length >= 2 && comparisonView === "event" ? (
               comparisonEvents.length === 0 ? (
                 <p className="comparison-empty">
@@ -1494,7 +1561,18 @@ function App() {
                           {comparisonTeams.map((team, index) => {
                             const value = values[index];
                             const available = comparisonSource === "snapshot" ? team.snapshot : team.live;
-                            const isBest = bestValue !== null && value === bestValue;
+                            const isBest = metric.showBest !== false && bestValue !== null && value === bestValue;
+                            const barWidth = value === null
+                              ? 0
+                              : minValue < 0
+                                ? maxValue === minValue
+                                  ? 100
+                                  : metric.higherIsBetter
+                                    ? ((value - minValue) / (maxValue - minValue)) * 100
+                                    : ((maxValue - value) / (maxValue - minValue)) * 100
+                                : metric.higherIsBetter
+                                  ? maxValue > 0 ? (value / maxValue) * 100 : 0
+                                  : value > 0 ? (minValue / value) * 100 : 0;
                             return (
                               <td className={isBest ? "best-comparison" : ""} key={team.number}>
                                 {value === null
@@ -1523,15 +1601,7 @@ function App() {
                                 {isBest && <span className="best-label">Best</span>}
                                 {value !== null && (
                                   <span className="comparison-bar" aria-hidden="true">
-                                    <span
-                                      style={{
-                                        width: `${
-                                          metric.higherIsBetter
-                                            ? maxValue > 0 ? (value / maxValue) * 100 : 0
-                                            : value > 0 ? (minValue / value) * 100 : 0
-                                        }%`,
-                                      }}
-                                    />
+                                    <span style={{ width: `${barWidth}%` }} />
                                   </span>
                                 )}
                               </td>

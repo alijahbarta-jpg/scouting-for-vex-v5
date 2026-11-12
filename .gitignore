@@ -13,6 +13,8 @@ npm-debug.log*
 .vite/
 coverage/
 *.tsbuildinfo
+__pycache__/
+*.py[cod]
 
 # Operating system files
 .DS_Store

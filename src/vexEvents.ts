@@ -150,10 +150,10 @@ export interface LiveTeamDetails {
   tournaments: LiveTournament[];
 }
 
-export class RobotEventsError extends Error {
+export class VEXEventsError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "RobotEventsError";
+    this.name = "VEXEventsError";
   }
 }
 
@@ -164,7 +164,7 @@ async function fetchWithRetry(url: string, init: RequestInit): Promise<Response>
       response = await fetch(url, init);
     } catch {
       if (attempt === 2) {
-        throw new RobotEventsError("Could not reach RobotEvents after retrying. Check your connection and try again.");
+        throw new VEXEventsError("Could not reach VEXEvents after retrying. Check your connection and try again.");
       }
       await new Promise((resolve) => window.setTimeout(resolve, 500 * (attempt + 1)));
       continue;
@@ -182,7 +182,7 @@ async function fetchWithRetry(url: string, init: RequestInit): Promise<Response>
         : 500 * (attempt + 1);
     await new Promise((resolve) => window.setTimeout(resolve, retryDelay));
   }
-  throw new RobotEventsError("Could not reach RobotEvents after retrying. Check your connection and try again.");
+  throw new VEXEventsError("Could not reach VEXEvents after retrying. Check your connection and try again.");
 }
 
 async function getJson<T>(path: string, token: string, params = new URLSearchParams()): Promise<T> {
@@ -196,31 +196,31 @@ async function getJson<T>(path: string, token: string, params = new URLSearchPar
       },
     });
   } catch (error) {
-    if (error instanceof RobotEventsError) throw error;
-    throw new RobotEventsError("Could not reach RobotEvents. Check your connection and try again.");
+    if (error instanceof VEXEventsError) throw error;
+    throw new VEXEventsError("Could not reach VEXEvents. Check your connection and try again.");
   }
 
   if (response.status === 401 || response.status === 403) {
-    throw new RobotEventsError("RobotEvents rejected the API key. Check that it is valid and try again.");
+    throw new VEXEventsError("VEXEvents rejected the API key. Check that it is valid and try again.");
   }
   if (response.status === 404) {
-    throw new RobotEventsError("The requested team or RobotEvents API endpoint was not found.");
+    throw new VEXEventsError("The requested team or VEXEvents API endpoint was not found.");
   }
   if (response.status === 429) {
-    throw new RobotEventsError("RobotEvents rate-limited this request after automatic retries. Wait a moment and retry.");
+    throw new VEXEventsError("VEXEvents rate-limited this request after automatic retries. Wait a moment and retry.");
   }
   if (!response.ok) {
-    throw new RobotEventsError(`RobotEvents request failed (HTTP ${response.status}).`);
+    throw new VEXEventsError(`VEXEvents request failed (HTTP ${response.status}).`);
   }
 
   try {
     return await response.json() as T;
   } catch {
-    throw new RobotEventsError("RobotEvents returned an unexpected response. Check the API key and try again.");
+    throw new VEXEventsError("VEXEvents returned an unexpected response. Check the API key and try again.");
   }
 }
 
-export async function validateRobotEventsKey(token: string): Promise<void> {
+export async function validateVEXEventsKey(token: string): Promise<void> {
   await getJson<IdInfo>("/programs/1", token);
 }
 
@@ -238,12 +238,12 @@ async function getAllPages<T>(
     params.set("page", String(page));
     const response = await getJson<ApiPage<T>>(path, token, params);
     if (!Array.isArray(response.data)) {
-      throw new RobotEventsError("RobotEvents returned an invalid paginated response.");
+      throw new VEXEventsError("VEXEvents returned an invalid paginated response.");
     }
     results.push(...response.data);
     lastPage = response.meta?.last_page ?? 1;
     if (lastPage > MAX_PAGES) {
-      throw new RobotEventsError(
+      throw new VEXEventsError(
         "This team's history exceeds the safe page limit. Refine the lookup or try again later.",
       );
     }
@@ -262,7 +262,7 @@ function formatLocation(location?: ApiLocation): string {
   return [location?.city, location?.region, location?.country].filter(Boolean).join(", ") || "Location unavailable";
 }
 
-export async function lookupRobotEventsTeam(token: string, teamNumber: string): Promise<LiveTeamDetails | null> {
+export async function lookupVEXEventsTeam(token: string, teamNumber: string): Promise<LiveTeamDetails | null> {
   const teamParams = new URLSearchParams();
   teamParams.append("number[]", teamNumber);
   teamParams.append("program[]", String(V5RC_PROGRAM_ID));

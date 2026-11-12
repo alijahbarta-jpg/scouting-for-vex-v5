@@ -20,11 +20,11 @@ import {
 } from "lucide-react";
 import { parseSkillsStandings, type SkillsStanding } from "./data";
 import {
-  lookupRobotEventsTeam,
-  RobotEventsError,
-  validateRobotEventsKey,
+  lookupVEXEventsTeam,
+  VEXEventsError,
+  validateVEXEventsKey,
   type LiveTeamDetails,
-} from "./robotEvents";
+} from "./vexEvents";
 
 const exampleTeamNumber = "8737M";
 
@@ -279,9 +279,9 @@ function App() {
   const loadedLiveComparisonCount = comparisonTeams.filter((comparisonTeam) => comparisonTeam.live).length;
   const currentSourceLabel = activeWorkspace === "compare"
     ? comparisonView === "event" || comparisonSource === "live"
-      ? `RobotEvents live · ${loadedLiveComparisonCount === 0 ? "no data" : `${loadedLiveComparisonCount}/${comparisonTeams.length} loaded`}`
+      ? `VEXEvents live · ${loadedLiveComparisonCount === 0 ? "no data" : `${loadedLiveComparisonCount}/${comparisonTeams.length} loaded`}`
       : "Skills snapshot"
-    : liveTeam ? "RobotEvents live" : "Skills snapshot";
+    : liveTeam ? "VEXEvents live" : "Skills snapshot";
   const comparisonMetrics: ComparisonMetric[] = comparisonSource === "snapshot" ? [
     {
       label: "Skills rank",
@@ -501,11 +501,11 @@ function App() {
     if (token) {
       setApiLoading(true);
       try {
-        const result = await lookupRobotEventsTeam(token, teamNumber);
+        const result = await lookupVEXEventsTeam(token, teamNumber);
         setLiveTeam(result);
-        if (!result) setNotice(`${teamNumber} was not found in the RobotEvents V5RC records.`);
+        if (!result) setNotice(`${teamNumber} was not found in the VEXEvents V5RC records.`);
       } catch (error) {
-        setApiKeyError(error instanceof Error ? error.message : "Could not load team details from RobotEvents.");
+        setApiKeyError(error instanceof Error ? error.message : "Could not load team details from VEXEvents.");
       } finally {
         setApiLoading(false);
       }
@@ -536,23 +536,23 @@ function App() {
     event.preventDefault();
     const token = apiKeyDraft.trim();
     if (!token) {
-      setApiKeyError("Paste your RobotEvents API key first.");
+      setApiKeyError("Paste your VEXEvents API key first.");
       return;
     }
     setApiKeyError("");
     setApiKeyStatus("Checking key…");
     try {
-      await validateRobotEventsKey(token);
+      await validateVEXEventsKey(token);
       if (token !== apiKey) {
         setLiveComparisonTeams({});
         setLiveLoadStatuses({});
       }
       setApiKey(token);
-      setApiKeyStatus("Connected to RobotEvents");
+      setApiKeyStatus("Connected to VEXEvents");
       await searchTeamNumber(query.trim().toUpperCase(), token);
     } catch (error) {
       setApiKeyStatus("");
-      setApiKeyError(error instanceof RobotEventsError ? error.message : "Could not verify the RobotEvents API key.");
+      setApiKeyError(error instanceof VEXEventsError ? error.message : "Could not verify the VEXEvents API key.");
     }
   }
 
@@ -602,7 +602,7 @@ function App() {
 
   async function loadLiveComparison(forceNumbers: string[] = []) {
     if (!apiKey) {
-      setComparisonError("Connect a RobotEvents API key above to load live comparison data.");
+      setComparisonError("Connect a VEXEvents API key above to load live comparison data.");
       return;
     }
     const requestedTeams = comparisonTeams.filter(
@@ -628,7 +628,7 @@ function App() {
       for (const team of requestedTeams) {
         if (liveComparisonTeams[team.number] && !forceNumbers.includes(team.number)) continue;
         try {
-          const details = await lookupRobotEventsTeam(apiKey, team.number);
+          const details = await lookupVEXEventsTeam(apiKey, team.number);
           results.push({ number: team.number, details, error: "" });
         } catch (error) {
           results.push({
@@ -655,7 +655,7 @@ function App() {
       });
       const failures = results.flatMap((result) => {
         if (result.error) return [`${result.number}: ${result.error}`];
-        if (!result.details) return [`${result.number}: not found in RobotEvents.`];
+        if (!result.details) return [`${result.number}: not found in VEXEvents.`];
         return [];
       });
       setComparisonError(failures.join(" "));
@@ -700,7 +700,7 @@ function App() {
       rows.push(["Event comparison", selectedComparisonEvent?.name ?? comparisonEventId]);
       rows.push([
         "Data source",
-        `RobotEvents live${comparisonFetchedAt ? ` · Retrieved ${comparisonFetchedAt}` : ""}`,
+        `VEXEvents live${comparisonFetchedAt ? ` · Retrieved ${comparisonFetchedAt}` : ""}`,
       ]);
       rows.push(["Team", "Placement", "Match record", "Win rate", "Award"]);
       for (const team of comparisonTeams) {
@@ -729,7 +729,7 @@ function App() {
         }
       }
     } else {
-      rows.push([comparisonSource === "snapshot" ? "Skills snapshot comparison" : "RobotEvents live comparison"]);
+      rows.push([comparisonSource === "snapshot" ? "Skills snapshot comparison" : "VEXEvents live comparison"]);
       rows.push([
         "Data freshness",
         comparisonSource === "snapshot"
@@ -889,8 +889,8 @@ function App() {
               <h1>{activeWorkspace === "search" ? <>Look up a team in <span>seconds.</span></> : <>Compare teams <span>side by side.</span></>}</h1>
               <p className="page-intro">
                 {activeWorkspace === "search"
-                  ? "Search the built-in skills snapshot or connect RobotEvents for the full picture on a team."
-                  : "Compare skills standings or live RobotEvents results for up to four teams."}
+                  ? "Search the built-in skills snapshot or connect VEXEvents for the full picture on a team."
+                  : "Compare skills standings or live VEXEvents results for up to four teams."}
               </p>
             </div>
           </section>
@@ -999,7 +999,7 @@ function App() {
               <div>
                 <strong>Need live team details?</strong>
                 <span>
-                  Paste your RobotEvents API key to unlock awards, skills runs, match records, and event history.
+                  Paste your VEXEvents API key to unlock awards, skills runs, match records, and event history.
                 </span>
               </div>
               {apiKeyStatus && (
@@ -1011,7 +1011,7 @@ function App() {
             {apiKey ? (
               <div className="api-key-connected-row">
                 <span>
-                  Your key is stored only in this page's memory and sent directly to RobotEvents for live lookups.
+                  Your key is stored only in this page's memory and sent directly to VEXEvents for live lookups.
                 </span>
                 <button className="text-link" type="button" onClick={disconnectApiKey} disabled={liveComparisonLoading}>
                   Disconnect key
@@ -1020,10 +1020,10 @@ function App() {
             ) : (
               <form className="api-key-form" onSubmit={connectApiKey}>
                 <input
-                  aria-label="RobotEvents API key"
+                  aria-label="VEXEvents API key"
                   autoComplete="off"
                   type="password"
-                  placeholder="Paste your RobotEvents API key"
+                  placeholder="Paste your VEXEvents API key"
                   value={apiKeyDraft}
                   onChange={(event) => {
                     setApiKeyDraft(event.target.value);
@@ -1041,10 +1041,10 @@ function App() {
             )}
             <p className="api-key-note">
               This app keeps the key in memory only while the page is open, then sends it directly to
-              RobotEvents. It is not saved in browser storage or sent to this site's server. Anyone with
+              VEXEvents. It is not saved in browser storage or sent to this site's server. Anyone with
               access to this page's scripts can inspect it while it is active.{" "}
               <a href="https://events.vex.com/api/v2" target="_blank" rel="noreferrer">
-                Get a key from RobotEvents <ExternalLink size={11} />
+                Get a key from VEXEvents <ExternalLink size={11} />
               </a>
             </p>
             {apiKeyError && <p className="api-key-error" role="alert">{apiKeyError}</p>}
@@ -1056,7 +1056,7 @@ function App() {
               <div>
                 <span className="panel-kicker">SIDE-BY-SIDE SCOUTING</span>
                 <h3>Compare teams</h3>
-                <p>Compare snapshot skills or load live RobotEvents and event results.</p>
+                <p>Compare snapshot skills or load live VEXEvents and event results.</p>
               </div>
             </div>
             <div className="comparison-selectors">
@@ -1204,7 +1204,7 @@ function App() {
                     onChange={(event) => setComparisonSource(event.target.value as ComparisonSource)}
                   >
                     <option value="snapshot">Skills snapshot</option>
-                    <option value="live">RobotEvents live</option>
+                    <option value="live">VEXEvents live</option>
                   </select>
                 </label>
               ) : (
@@ -1249,7 +1249,7 @@ function App() {
                   type="button"
                   onClick={() => void loadLiveComparison(comparisonTeams.map((team) => team.number))}
                   disabled={!apiKey || liveComparisonLoading || comparisonTeams.length < 2}
-                  title={!apiKey ? "Connect a RobotEvents API key above" : "Load live data for selected teams"}
+                  title={!apiKey ? "Connect a VEXEvents API key above" : "Load live data for selected teams"}
                 >
                   <RefreshCw size={13} className={liveComparisonLoading ? "spin-icon" : ""} />
                   {liveComparisonLoading
@@ -1276,7 +1276,7 @@ function App() {
             <div className="comparison-freshness">
               {comparisonView === "event" ? (
                 <span>
-                  Event results use live RobotEvents data
+                  Event results use live VEXEvents data
                   {comparisonFetchedAt ? ` · Retrieved ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(comparisonFetchedAt))}` : ""}
                 </span>
               ) : comparisonSource === "snapshot" ? (
@@ -1286,8 +1286,8 @@ function App() {
               ) : (
                 <span>
                   {loadedLiveComparisonCount === 0
-                    ? `RobotEvents live · No data loaded${apiKey ? " · Load live data to compare" : " · Connect an API key to load"}`
-                    : `RobotEvents live · ${loadedLiveComparisonCount} of ${comparisonTeams.length} teams loaded · Retrieval times shown in the table`}
+                    ? `VEXEvents live · No data loaded${apiKey ? " · Load live data to compare" : " · Connect an API key to load"}`
+                    : `VEXEvents live · ${loadedLiveComparisonCount} of ${comparisonTeams.length} teams loaded · Retrieval times shown in the table`}
                 </span>
               )}
             </div>
@@ -1296,7 +1296,7 @@ function App() {
                 <p className="comparison-empty">
                   {allComparisonEvents.length > 0
                     ? "No events match the selected year or search. Adjust the event filters."
-                    : "Load live team data with a RobotEvents API key to compare event results."}
+                    : "Load live team data with a VEXEvents API key to compare event results."}
                 </p>
               ) : (
                 <div className="comparison-table-wrap">
@@ -1441,7 +1441,7 @@ function App() {
                       <th scope="col">
                         {comparisonSource === "snapshot"
                           ? "SKILLS SNAPSHOT"
-                          : `ROBOTEVENTS LIVE${loadedLiveComparisonCount === 0 ? " · NO DATA" : ""}`}
+                          : `VEXEVENTS LIVE${loadedLiveComparisonCount === 0 ? " · NO DATA" : ""}`}
                       </th>
                       {comparisonTeams.map((team) => (
                         <th scope="col" key={team.number}>
@@ -1660,14 +1660,14 @@ function App() {
             <section className="empty-state" aria-live="polite">
               <div className="empty-icon"><Search size={23} /></div>
               <h2>Fetching team records</h2>
-              <p>Loading events, awards, skills, match records, and rankings from RobotEvents.</p>
+              <p>Loading events, awards, skills, match records, and rankings from VEXEvents.</p>
             </section>
           ) : liveTeam ? (
             <>
               <div className="snapshot-banner live-banner">
                 <span className="snapshot-dot live-dot" />
                 <span>
-                  <strong>RobotEvents live lookup</strong> — details fetched using your API key.
+                  <strong>VEXEvents live lookup</strong> — details fetched using your API key.
                 </span>
                 <span className="snapshot-date">
                   Retrieved {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(liveTeam.fetchedAt))}
@@ -1906,7 +1906,7 @@ function App() {
                           <td>
                             <a
                               className="row-arrow"
-                              aria-label={`View ${event.name} on RobotEvents`}
+                              aria-label={`View ${event.name} on VEXEvents`}
                               href={`https://events.vex.com/events/${event.id}`}
                               target="_blank"
                               rel="noreferrer"
@@ -1940,7 +1940,7 @@ function App() {
                 <span>
                   SCOUTLINE <span className="footer-dot">•</span> VEX V5 TEAM INTELLIGENCE
                 </span>
-                <span>Live data provided by RobotEvents API.</span>
+                <span>Live data provided by VEXEvents API.</span>
               </footer>
             </>
           ) : loading ? (
@@ -1952,7 +1952,7 @@ function App() {
           ) : apiKey ? (
             <section className="empty-state" role={apiKeyError ? "alert" : "status"}>
               <div className="empty-icon"><Search size={23} /></div>
-              <h2>{apiKeyError ? "RobotEvents lookup failed" : "Team not found in RobotEvents"}</h2>
+              <h2>{apiKeyError ? "VEXEvents lookup failed" : "Team not found in VEXEvents"}</h2>
               <p>
                 {apiKeyError ||
                   notice ||
@@ -2097,7 +2097,7 @@ function App() {
                   <p>
                     This CSV includes team names, locations, ranks, and skills scores. It does not
                     include awards, event placements, participation history, or match records.
-                    Connect RobotEvents for the full competition picture.
+                    Connect VEXEvents for the full competition picture.
                   </p>
                   <a
                     className="text-link"

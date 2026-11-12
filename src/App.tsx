@@ -169,7 +169,9 @@ function App() {
   const [suggestionActiveIndex, setSuggestionActiveIndex] = useState(-1);
   const [mainSearchOpen, setMainSearchOpen] = useState(false);
   const [mainSearchActiveIndex, setMainSearchActiveIndex] = useState(-1);
-  const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspace>("search");
+  const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspace>(() =>
+    new URLSearchParams(window.location.search).get("workspace") === "compare" ? "compare" : "search",
+  );
   const [liveComparisonTeams, setLiveComparisonTeams] = useState<Record<string, LiveTeamDetails>>({});
   const [liveLoadStatuses, setLiveLoadStatuses] = useState<Record<string, LiveLoadStatus>>({});
   const [liveComparisonLoading, setLiveComparisonLoading] = useState(false);
@@ -236,24 +238,15 @@ function App() {
     else params.delete("year");
     if (comparisonEventId) params.set("event", comparisonEventId);
     else params.delete("event");
+    if (activeWorkspace === "compare") params.set("workspace", "compare");
+    else params.delete("workspace");
     const queryString = params.toString();
     window.history.replaceState(
       null,
       "",
       `${window.location.pathname}${queryString ? `?${queryString}` : ""}${window.location.hash}`,
     );
-  }, [comparisonNumbers, comparisonSource, comparisonView, comparisonEventId, comparisonYear]);
-
-  useEffect(() => {
-    const comparisonPanel = document.getElementById("team-comparison");
-    if (!comparisonPanel || !("IntersectionObserver" in window)) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setActiveWorkspace(entry.isIntersecting ? "compare" : "search"),
-      { rootMargin: "-12% 0px -72% 0px" },
-    );
-    observer.observe(comparisonPanel);
-    return () => observer.disconnect();
-  }, []);
+  }, [activeWorkspace, comparisonNumbers, comparisonSource, comparisonView, comparisonEventId, comparisonYear]);
 
   const team = standings.find((standing) => standing.teamNumber === selectedNumber) ?? null;
   const teamPageNumber = liveTeam?.number ?? team?.teamNumber;
@@ -765,18 +758,37 @@ function App() {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  function scrollToComparison() {
-    document.getElementById("team-comparison")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  function showComparisonWorkspace() {
+    setActiveWorkspace("compare");
   }
 
-  function scrollToSearch() {
-    document.getElementById("team-search")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  function showSearchWorkspace() {
+    setActiveWorkspace("search");
   }
 
   function openSnapshotComparison() {
     setComparisonView("skills");
     setComparisonSource("snapshot");
-    scrollToComparison();
+    setActiveWorkspace("compare");
+  }
+
+  function compareCurrentTeam() {
+    const teamNumber = liveTeam?.number ?? team?.teamNumber;
+    if (liveTeam) {
+      setLiveComparisonTeams((current) => ({ ...current, [liveTeam.number]: liveTeam }));
+      setLiveLoadStatuses((current) => ({ ...current, [liveTeam.number]: "loaded" }));
+    }
+    if (teamNumber && !comparisonNumbers.includes(teamNumber)) {
+      const emptySlot = comparisonNumbers.findIndex((number) => !number.trim());
+      if (emptySlot >= 0) {
+        updateComparisonTeam(emptySlot, teamNumber);
+      } else if (comparisonNumbers.length < 4) {
+        setComparisonNumbers((current) => [...current, teamNumber]);
+      } else {
+        setComparisonError("The comparison already has four teams. Remove one before adding this team.");
+      }
+    }
+    setActiveWorkspace("compare");
   }
 
   return (
@@ -794,14 +806,14 @@ function App() {
         <button
           className={activeWorkspace === "search" ? "nav-item active" : "nav-item"}
           aria-current={activeWorkspace === "search" ? "page" : undefined}
-          onClick={scrollToSearch}
+          onClick={showSearchWorkspace}
         >
           <Search size={17} /> <span>Team search</span>
         </button>
         <button
           className={activeWorkspace === "compare" ? "nav-item active" : "nav-item"}
           aria-current={activeWorkspace === "compare" ? "page" : undefined}
-          onClick={scrollToComparison}
+          onClick={showComparisonWorkspace}
         >
           <Users size={17} /> <span>Compare teams</span>
         </button>
@@ -871,14 +883,20 @@ function App() {
         <div className="page-wrap">
           <section className="page-heading">
             <div>
-              <div className="eyebrow"><span className="eyebrow-line" /> VEX V5 COMPETITION INTELLIGENCE</div>
-              <h1>Look up a team in <span>seconds.</span></h1>
+              <div className="eyebrow">
+                <span className="eyebrow-line" /> VEX V5 {activeWorkspace === "search" ? "TEAM SEARCH" : "TEAM COMPARISON"}
+              </div>
+              <h1>{activeWorkspace === "search" ? <>Look up a team in <span>seconds.</span></> : <>Compare teams <span>side by side.</span></>}</h1>
               <p className="page-intro">
-                Search the built-in skills snapshot or connect RobotEvents for the full picture on a team.
+                {activeWorkspace === "search"
+                  ? "Search the built-in skills snapshot or connect RobotEvents for the full picture on a team."
+                  : "Compare skills standings or live RobotEvents results for up to four teams."}
               </p>
             </div>
           </section>
 
+          {activeWorkspace === "search" && (
+          <>
           <form className="search-panel" id="team-search" onSubmit={searchTeam}>
             <div className="search-field-wrap">
               <Search size={19} className="search-icon" />
@@ -970,6 +988,8 @@ function App() {
               {apiLoading ? "Fetching" : loading ? "Loading" : "Look it up"} <ArrowRight size={16} />
             </button>
           </form>
+          </>
+          )}
 
           <section className="api-key-panel">
             <div className="api-key-heading">
@@ -1030,6 +1050,7 @@ function App() {
             {apiKeyError && <p className="api-key-error" role="alert">{apiKeyError}</p>}
           </section>
 
+          {activeWorkspace === "compare" && (
           <section className="panel comparison-panel" id="team-comparison">
             <div className="panel-heading comparison-heading">
               <div>
@@ -1183,13 +1204,7 @@ function App() {
                     onChange={(event) => setComparisonSource(event.target.value as ComparisonSource)}
                   >
                     <option value="snapshot">Skills snapshot</option>
-                    <option value="live">
-                      RobotEvents live{loadedLiveComparisonCount === 0
-                        ? " · no data"
-                        : loadedLiveComparisonCount < comparisonTeams.length
-                          ? " · partially loaded"
-                          : " · loaded"}
-                    </option>
+                    <option value="live">RobotEvents live</option>
                   </select>
                 </label>
               ) : (
@@ -1299,7 +1314,7 @@ function App() {
                                   ? "Load failed"
                                   : liveLoadStatuses[team.number] === "missing"
                                     ? "Team not found"
-                                    : "Not loaded"
+                                    : "No Live Data Available"
                                 : team.live.tournaments.some((event) => String(event.id) === comparisonEventId)
                                   ? "Attended"
                                   : "No event record"}
@@ -1385,7 +1400,9 @@ function App() {
                               {!team.live
                                 ? liveLoadStatuses[team.number] === "error"
                                   ? "Request failed"
-                                  : liveLoadStatuses[team.number] === "missing" ? "Team not found" : "Not loaded"
+                                  : liveLoadStatuses[team.number] === "missing"
+                                    ? "Team not found"
+                                    : "No Live Data Available"
                                 : !event
                                   ? "No event record returned"
                                     : `${event.matches.length} scored matches · ${event.programmingSkillsRuns} programming / ${event.driverSkillsRuns} driver runs`}
@@ -1444,7 +1461,7 @@ function App() {
                                       ? "Team not found"
                                       : team.live
                                         ? `Updated ${new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(new Date(team.live.fetchedAt))}`
-                                        : "Not loaded"}
+                                        : "No Live Data Available"}
                               </small>
                               {liveLoadStatuses[team.number] === "error" && (
                                 <button
@@ -1501,7 +1518,7 @@ function App() {
                                       )
                                       : liveLoadStatuses[team.number] === "missing"
                                         ? "Team not found"
-                                      : available ? "Not available" : "Load live data"
+                                          : available ? "Not available" : "—"
                                   : metric.format(value)}
                                 {isBest && <span className="best-label">Best</span>}
                                 {value !== null && (
@@ -1536,7 +1553,7 @@ function App() {
                             : !team.live
                               ? liveLoadStatuses[team.number] === "error"
                                 ? "Request failed"
-                                : liveLoadStatuses[team.number] === "missing" ? "Team not found" : "Not loaded"
+                                : liveLoadStatuses[team.number] === "missing" ? "Team not found" : "—"
                               : formatLiveCoverage(team, comparisonYear)}
                         </td>
                       ))}
@@ -1549,7 +1566,7 @@ function App() {
                             ? team.snapshot && (comparisonYear === "all" || team.snapshot.latestScoreAt.slice(0, 4) === comparisonYear)
                               ? [team.snapshot.region, team.snapshot.country].filter(Boolean).join(", ") || "—"
                               : team.snapshot ? `No score in ${comparisonYear}` : "Not in snapshot"
-                            : team.live?.location || (team.live ? "Not available" : "Load live data")}
+                            : team.live?.location || (team.live ? "Not available" : "—")}
                         </td>
                       ))}
                     </tr>
@@ -1616,7 +1633,18 @@ function App() {
               Calendar-year filters use event dates. Snapshot year filters use each team’s latest recorded score year; the snapshot is not a historical archive. Bars and “Best” labels supplement the numeric values. Equal leaders are all highlighted.
             </p>
           </section>
+          )}
 
+          {activeWorkspace === "search" && (
+          <>
+          {(team || liveTeam) && !apiLoading && (
+            <div className="search-result-actions">
+              <span>Ready to compare this team?</span>
+              <button className="comparison-action-button" type="button" onClick={compareCurrentTeam}>
+                <Users size={14} /> Compare this team
+              </button>
+            </div>
+          )}
           {(notice || loadError) && (
             <div className="notice" role="status">
               <span>{loadError || notice}</span>
@@ -2121,6 +2149,8 @@ function App() {
                 View example team <ArrowRight size={16} />
               </button>
             </section>
+          )}
+          </>
           )}
         </div>
       </main>

@@ -109,25 +109,93 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   color: #2b4736;
   background: #eff7f0;
   font-weight: 600;
+  box-shadow: inset 2px 0 #67b783;
 }
 
 .nav-item.active svg {
   color: #5da878;
 }
 
+.nav-item:not(.active):hover {
+  color: #42584a;
+  background: #f7faf6;
+}
+
 .seasons-label {
   margin-top: 37px;
 }
 
-.season-dot, .season-pill > span, .active-season-tag > span {
+.season-pill > span, .active-season-tag > span {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: #77c58d;
 }
 
-.active-season {
-  color: #555f5a;
+.sidebar-data-card {
+  display: grid;
+  gap: 6px;
+  padding: 11px 10px;
+  border: 1px solid #e8eee8;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.sidebar-data-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #68756c;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.sidebar-data-badge {
+  padding: 2px 5px;
+  color: #5e8a68;
+  border-radius: 3px;
+  background: #edf5ed;
+  font-size: 7px;
+  letter-spacing: .5px;
+}
+
+.sidebar-data-card > strong {
+  margin-top: 2px;
+  color: #303b33;
+  font: 600 21px/1 "Space Grotesk", sans-serif;
+}
+
+.sidebar-data-caption,
+.sidebar-data-date {
+  color: #89938b;
+  font-size: 8px;
+}
+
+.sidebar-data-card button {
+  min-height: 29px;
+  margin-top: 3px;
+  color: #4f765a;
+  border: 1px solid #e3ece2;
+  border-radius: 5px;
+  background: #f4f8f2;
+  font-size: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sidebar-data-card button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.sidebar-data-card > a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding-top: 2px;
+  color: #7e8b81;
+  font-size: 8px;
 }
 
 .sidebar-bottom {
@@ -342,9 +410,12 @@ h1 > span {
   border-radius: 9px;
   background: #fff;
   box-shadow: 0 3px 14px rgba(38,57,43,.025);
+  scroll-margin-top: 16px;
 }
 
 .search-field-wrap {
+  position: relative;
+  z-index: 2;
   min-width: 0;
   flex: 1;
   height: 39px;
@@ -357,6 +428,63 @@ h1 > span {
 .search-icon {
   flex: 0 0 auto;
   color: #87a78e;
+}
+
+.main-search-suggestions {
+  position: absolute;
+  top: calc(100% + 11px);
+  right: 0;
+  left: 0;
+  z-index: 8;
+  max-height: 260px;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid #e6ebe5;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 9px 24px rgba(38,57,43,.14);
+}
+
+.main-search-suggestions button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(72px, auto) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 3px 10px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.main-search-suggestions button:hover,
+.main-search-suggestions button:focus-visible,
+.main-search-suggestions button.suggestion-active {
+  background: #f2f7f1;
+}
+
+.main-search-suggestions strong {
+  color: #3e5545;
+  font-size: 10px;
+}
+
+.main-search-suggestions span {
+  overflow: hidden;
+  color: #68736c;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.main-search-suggestions small {
+  grid-column: 2;
+  overflow: hidden;
+  color: #9aa39d;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .search-field-wrap input {
@@ -632,10 +760,6 @@ h1 > span {
   margin-left: auto;
   color: #85866f;
   white-space: nowrap;
-}
-
-.season-summary {
-  cursor: default;
 }
 
 .data-limits-panel {
@@ -918,6 +1042,16 @@ h1 > span {
 .add-comparison-button:disabled {
   opacity: .6;
   cursor: wait;
+}
+
+.comparison-selectors > .add-comparison-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  align-self: end;
+  justify-content: center;
+  padding: 0 8px;
+  white-space: nowrap;
 }
 
 .comparison-selectors {
@@ -1831,7 +1965,10 @@ td:first-child {
   .brand {
     margin: 0 0 46px;
   }
-  .brand > span, .sidebar-section-label, .nav-item > span:not(.season-dot), .sidebar-bottom {
+  .brand > span, .sidebar-section-label, .nav-item > span, .sidebar-bottom {
+    display: none;
+  }
+  .sidebar-data-card {
     display: none;
   }
   .nav-item {

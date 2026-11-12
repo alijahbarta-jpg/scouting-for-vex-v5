@@ -58,6 +58,7 @@ interface TeamScoutNotes {
 type ComparisonSource = "snapshot" | "live";
 type ComparisonView = "skills" | "event";
 type LiveLoadStatus = "loading" | "loaded" | "error" | "missing";
+type ActiveWorkspace = "search" | "compare";
 const scoutTags = ["Strong autonomous", "Consistent", "Fast cycles", "Defensive", "Reliable", "Needs review"];
 const scoutNotesStorageKey = "scoutline-team-notes-v1";
 
@@ -166,6 +167,9 @@ function App() {
   const [comparisonError, setComparisonError] = useState("");
   const [comparisonSearchIndex, setComparisonSearchIndex] = useState<number | null>(null);
   const [suggestionActiveIndex, setSuggestionActiveIndex] = useState(-1);
+  const [mainSearchOpen, setMainSearchOpen] = useState(false);
+  const [mainSearchActiveIndex, setMainSearchActiveIndex] = useState(-1);
+  const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspace>("search");
   const [liveComparisonTeams, setLiveComparisonTeams] = useState<Record<string, LiveTeamDetails>>({});
   const [liveLoadStatuses, setLiveLoadStatuses] = useState<Record<string, LiveLoadStatus>>({});
   const [liveComparisonLoading, setLiveComparisonLoading] = useState(false);
@@ -240,10 +244,31 @@ function App() {
     );
   }, [comparisonNumbers, comparisonSource, comparisonView, comparisonEventId, comparisonYear]);
 
+  useEffect(() => {
+    const comparisonPanel = document.getElementById("team-comparison");
+    if (!comparisonPanel || !("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setActiveWorkspace(entry.isIntersecting ? "compare" : "search"),
+      { rootMargin: "-12% 0px -72% 0px" },
+    );
+    observer.observe(comparisonPanel);
+    return () => observer.disconnect();
+  }, []);
+
   const team = standings.find((standing) => standing.teamNumber === selectedNumber) ?? null;
   const teamPageNumber = liveTeam?.number ?? team?.teamNumber;
   const highestProgramming = Math.max(0, ...standings.map((standing) => standing.highestProgramming));
   const highestDriver = Math.max(0, ...standings.map((standing) => standing.highestDriver));
+  const mainSearchTerm = query.trim().toLowerCase();
+  const mainSearchSuggestions = mainSearchTerm && !standings.some(
+    (standing) => standing.teamNumber === mainSearchTerm.toUpperCase(),
+  )
+    ? standings.filter((standing) =>
+      `${standing.teamNumber} ${standing.teamName} ${standing.organization}`
+        .toLowerCase()
+        .includes(mainSearchTerm),
+    ).slice(0, 6)
+    : [];
   const comparisonTeams: ComparisonTeam[] = [...new Set(
     comparisonNumbers
       .map((number) => number.trim().toUpperCase())
@@ -258,6 +283,12 @@ function App() {
       live,
     };
   });
+  const loadedLiveComparisonCount = comparisonTeams.filter((comparisonTeam) => comparisonTeam.live).length;
+  const currentSourceLabel = activeWorkspace === "compare"
+    ? comparisonView === "event" || comparisonSource === "live"
+      ? `RobotEvents live · ${loadedLiveComparisonCount === 0 ? "no data" : `${loadedLiveComparisonCount}/${comparisonTeams.length} loaded`}`
+      : "Skills snapshot"
+    : liveTeam ? "RobotEvents live" : "Skills snapshot";
   const comparisonMetrics: ComparisonMetric[] = comparisonSource === "snapshot" ? [
     {
       label: "Skills rank",
@@ -496,7 +527,16 @@ function App() {
   function searchTeam(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setApiKeyError("");
+    setMainSearchOpen(false);
     void searchTeamNumber(query.trim().toUpperCase());
+  }
+
+  function selectMainSearchSuggestion(teamNumber: string) {
+    setQuery(teamNumber);
+    setMainSearchOpen(false);
+    setMainSearchActiveIndex(-1);
+    setApiKeyError("");
+    void searchTeamNumber(teamNumber);
   }
 
   async function connectApiKey(event: FormEvent<HTMLFormElement>) {
@@ -533,6 +573,8 @@ function App() {
 
   function handleSearchInput(value: string) {
     setQuery(value);
+    setMainSearchActiveIndex(-1);
+    setMainSearchOpen(Boolean(value.trim()));
     setNotice("");
     setApiKeyError("");
   }
@@ -727,6 +769,16 @@ function App() {
     document.getElementById("team-comparison")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  function scrollToSearch() {
+    document.getElementById("team-search")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function openSnapshotComparison() {
+    setComparisonView("skills");
+    setComparisonSource("snapshot");
+    scrollToComparison();
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -739,17 +791,40 @@ function App() {
           </span>
         </a>
         <div className="sidebar-section-label">WORKSPACE</div>
-        <button className="nav-item active" onClick={showExample}>
+        <button
+          className={activeWorkspace === "search" ? "nav-item active" : "nav-item"}
+          aria-current={activeWorkspace === "search" ? "page" : undefined}
+          onClick={scrollToSearch}
+        >
           <Search size={17} /> <span>Team search</span>
         </button>
-        <button className="nav-item" onClick={scrollToComparison}>
+        <button
+          className={activeWorkspace === "compare" ? "nav-item active" : "nav-item"}
+          aria-current={activeWorkspace === "compare" ? "page" : undefined}
+          onClick={scrollToComparison}
+        >
           <Users size={17} /> <span>Compare teams</span>
         </button>
         <div className="sidebar-section-label seasons-label">DATA</div>
-        <div className="nav-item active-season season-summary">
-          <span className="season-dot" />
-          <span>Skills standings</span>
-        </div>
+        <section className="sidebar-data-card" aria-label="Skills snapshot">
+          <div className="sidebar-data-heading">
+            <span>Skills snapshot</span>
+            <span className="sidebar-data-badge">CSV</span>
+          </div>
+          <strong>{standings.length.toLocaleString()}</strong>
+          <span className="sidebar-data-caption">
+            {loading ? "Loading teams…" : loadError ? "Snapshot unavailable" : "teams in this dataset"}
+          </span>
+          <span className="sidebar-data-date">
+            Updated {snapshotDate ? formatSnapshotDate(snapshotDate) : "date unavailable"}
+          </span>
+          <button type="button" onClick={openSnapshotComparison} disabled={!standings.length}>
+            Compare snapshot
+          </button>
+          <a href={`${import.meta.env.BASE_URL}skills-standings.csv`} download>
+            Download CSV <Download size={12} />
+          </a>
+        </section>
         <div className="sidebar-bottom">
           <div className="sidebar-callout">
             <div className="callout-icon">
@@ -785,10 +860,10 @@ function App() {
           <div className="breadcrumbs">
             <span>Workspace</span>
             <span className="crumb-slash">/</span>
-            <strong>Team search</strong>
+            <strong>{activeWorkspace === "compare" ? "Compare teams" : "Team search"}</strong>
           </div>
           <div className="topbar-right">
-            <span className="season-pill"><span /> {apiKey ? "RobotEvents API" : "Skills CSV snapshot"}</span>
+            <span className="season-pill"><span /> {currentSourceLabel}</span>
             <button className="icon-button help-button" aria-label="Help"><CircleHelp size={18} /></button>
           </div>
         </header>
@@ -804,14 +879,49 @@ function App() {
             </div>
           </section>
 
-          <form className="search-panel" onSubmit={searchTeam}>
+          <form className="search-panel" id="team-search" onSubmit={searchTeam}>
             <div className="search-field-wrap">
               <Search size={19} className="search-icon" />
               <input
-                aria-label="VEX team number"
-                placeholder="Enter a VEX team number (e.g. 8737M)"
+                aria-label="VEX team number or team name"
+                placeholder="Search by team number or team name"
                 value={query}
+                role="combobox"
+                aria-autocomplete="list"
+                aria-haspopup="listbox"
+                aria-expanded={mainSearchOpen && mainSearchSuggestions.length > 0}
+                aria-controls="main-team-suggestions"
+                aria-activedescendant={
+                  mainSearchOpen && mainSearchActiveIndex >= 0
+                    ? `main-team-suggestion-${mainSearchActiveIndex}`
+                    : undefined
+                }
+                autoComplete="off"
+                onFocus={() => setMainSearchOpen(Boolean(query.trim()))}
+                onBlur={() => window.setTimeout(() => setMainSearchOpen(false), 120)}
                 onChange={(event) => handleSearchInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowDown" && mainSearchSuggestions.length > 0) {
+                    event.preventDefault();
+                    setMainSearchOpen(true);
+                    setMainSearchActiveIndex((current) => Math.min(current + 1, mainSearchSuggestions.length - 1));
+                  } else if (event.key === "ArrowUp" && mainSearchSuggestions.length > 0) {
+                    event.preventDefault();
+                    setMainSearchOpen(true);
+                    setMainSearchActiveIndex((current) => Math.max(current - 1, 0));
+                  } else if (
+                    event.key === "Enter" &&
+                    mainSearchOpen &&
+                    mainSearchActiveIndex >= 0 &&
+                    mainSearchSuggestions[mainSearchActiveIndex]
+                  ) {
+                    event.preventDefault();
+                    selectMainSearchSuggestion(mainSearchSuggestions[mainSearchActiveIndex].teamNumber);
+                  } else if (event.key === "Escape") {
+                    setMainSearchOpen(false);
+                    setMainSearchActiveIndex(-1);
+                  }
+                }}
               />
               {query && (
                 <button
@@ -824,7 +934,33 @@ function App() {
                 </button>
               )}
               <span className="input-divider" />
-              <span className="search-hint">TEAM NUMBER</span>
+              <span className="search-hint">TEAM OR NAME</span>
+              {mainSearchOpen && mainSearchSuggestions.length > 0 && (
+                <div
+                  className="main-search-suggestions"
+                  id="main-team-suggestions"
+                  role="listbox"
+                  aria-label="Matching teams"
+                >
+                  {mainSearchSuggestions.map((standing, index) => (
+                    <button
+                      key={standing.teamNumber}
+                      type="button"
+                      role="option"
+                      id={`main-team-suggestion-${index}`}
+                      aria-selected={index === mainSearchActiveIndex}
+                      className={index === mainSearchActiveIndex ? "suggestion-active" : ""}
+                      onMouseEnter={() => setMainSearchActiveIndex(index)}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => selectMainSearchSuggestion(standing.teamNumber)}
+                    >
+                      <strong>{standing.teamNumber}</strong>
+                      <span>{standing.teamName}</span>
+                      {standing.organization && <small>{standing.organization}</small>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <button
               className="search-button"
@@ -1047,7 +1183,13 @@ function App() {
                     onChange={(event) => setComparisonSource(event.target.value as ComparisonSource)}
                   >
                     <option value="snapshot">Skills snapshot</option>
-                    <option value="live">RobotEvents live</option>
+                    <option value="live">
+                      RobotEvents live{loadedLiveComparisonCount === 0
+                        ? " · no data"
+                        : loadedLiveComparisonCount < comparisonTeams.length
+                          ? " · partially loaded"
+                          : " · loaded"}
+                    </option>
                   </select>
                 </label>
               ) : (
@@ -1128,8 +1270,9 @@ function App() {
                 </span>
               ) : (
                 <span>
-                  RobotEvents live data · Per-team retrieval timestamps shown in the table
-                  {!apiKey && " · Connect an API key to load"}
+                  {loadedLiveComparisonCount === 0
+                    ? `RobotEvents live · No data loaded${apiKey ? " · Load live data to compare" : " · Connect an API key to load"}`
+                    : `RobotEvents live · ${loadedLiveComparisonCount} of ${comparisonTeams.length} teams loaded · Retrieval times shown in the table`}
                 </span>
               )}
             </div>
@@ -1278,7 +1421,11 @@ function App() {
                 <table className="comparison-table">
                   <thead>
                     <tr>
-                      <th scope="col">{comparisonSource === "snapshot" ? "SKILLS SNAPSHOT" : "ROBOTEVENTS LIVE"}</th>
+                      <th scope="col">
+                        {comparisonSource === "snapshot"
+                          ? "SKILLS SNAPSHOT"
+                          : `ROBOTEVENTS LIVE${loadedLiveComparisonCount === 0 ? " · NO DATA" : ""}`}
+                      </th>
                       {comparisonTeams.map((team) => (
                         <th scope="col" key={team.number}>
                           <strong>{team.number}</strong>

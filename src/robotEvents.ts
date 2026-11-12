@@ -97,12 +97,29 @@ export interface LiveTournament {
   name: string;
   location: string;
   date: string;
+  year: string;
   placement: string;
-  record: string;
+  record: string | null;
   award?: string;
+  programmingSkills: number | null;
+  driverSkills: number | null;
+  programmingSkillsRuns: number;
+  driverSkillsRuns: number;
+  matches: LiveMatchResult[];
+}
+
+export interface LiveMatchResult {
+  id: number;
+  round: number;
+  matchnum: number;
+  name: string;
+  result: "Win" | "Loss" | "Tie";
+  teamScore: number;
+  opponentScore: number;
 }
 
 export interface LiveTeamDetails {
+  fetchedAt: string;
   number: string;
   name: string;
   organization: string;
@@ -114,6 +131,21 @@ export interface LiveTeamDetails {
   ties: number;
   skillsRank: number | null;
   skills: { programming: number; driver: number; combined: number };
+  skillsByYear: Record<string, {
+    programming: number | null;
+    driver: number | null;
+    combined: number | null;
+    rank: number | null;
+    programmingRuns: number;
+    driverRuns: number;
+  }>;
+  coverage: {
+    events: number;
+    programmingRuns: number;
+    driverRuns: number;
+    scoredMatches: number;
+    eventsWithScoredMatches: number;
+  };
   awards: LiveAward[];
   tournaments: LiveTournament[];
 }
@@ -125,17 +157,46 @@ export class RobotEventsError extends Error {
   }
 }
 
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    let response: Response;
+    try {
+      response = await fetch(url, init);
+    } catch {
+      if (attempt === 2) {
+        throw new RobotEventsError("Could not reach RobotEvents after retrying. Check your connection and try again.");
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 500 * (attempt + 1)));
+      continue;
+    }
+
+    if (response.ok || (response.status !== 429 && response.status < 500)) return response;
+    if (attempt === 2) return response;
+
+    const retryAfter = response.headers.get("Retry-After");
+    const retryAfterDate = retryAfter ? Date.parse(retryAfter) : Number.NaN;
+    const retryDelay = retryAfter && /^\d+$/.test(retryAfter)
+      ? Math.min(Number(retryAfter) * 1000, 30000)
+      : Number.isFinite(retryAfterDate)
+        ? Math.min(Math.max(0, retryAfterDate - Date.now()), 30000)
+        : 500 * (attempt + 1);
+    await new Promise((resolve) => window.setTimeout(resolve, retryDelay));
+  }
+  throw new RobotEventsError("Could not reach RobotEvents after retrying. Check your connection and try again.");
+}
+
 async function getJson<T>(path: string, token: string, params = new URLSearchParams()): Promise<T> {
   const query = params.toString();
   let response: Response;
   try {
-    response = await fetch(`${API_BASE}${path}${query ? `?${query}` : ""}`, {
+    response = await fetchWithRetry(`${API_BASE}${path}${query ? `?${query}` : ""}`, {
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${token}`,
       },
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof RobotEventsError) throw error;
     throw new RobotEventsError("Could not reach RobotEvents. Check your connection and try again.");
   }
 
@@ -146,7 +207,7 @@ async function getJson<T>(path: string, token: string, params = new URLSearchPar
     throw new RobotEventsError("The requested team or RobotEvents API endpoint was not found.");
   }
   if (response.status === 429) {
-    throw new RobotEventsError("RobotEvents rate-limited this request. Wait a moment and try again.");
+    throw new RobotEventsError("RobotEvents rate-limited this request after automatic retries. Wait a moment and retry.");
   }
   if (!response.ok) {
     throw new RobotEventsError(`RobotEvents request failed (HTTP ${response.status}).`);
@@ -220,6 +281,19 @@ export async function lookupRobotEventsTeam(token: string, teamNumber: string): 
 
   const programmingScores = skills.filter((skill) => skill.type === "programming").map((skill) => skill.score ?? 0);
   const driverScores = skills.filter((skill) => skill.type === "driver").map((skill) => skill.score ?? 0);
+  const skillsByEvent = new Map<number, {
+    programming: number[];
+    driver: number[];
+    ranks: number[];
+  }>();
+  for (const skill of skills) {
+    if (!skill.event?.id) continue;
+    const eventSkills = skillsByEvent.get(skill.event.id) ?? { programming: [], driver: [], ranks: [] };
+    if (skill.type === "programming") eventSkills.programming.push(skill.score ?? 0);
+    if (skill.type === "driver") eventSkills.driver.push(skill.score ?? 0);
+    if (skill.rank && skill.rank > 0) eventSkills.ranks.push(skill.rank);
+    skillsByEvent.set(skill.event.id, eventSkills);
+  }
   const awardsByEvent = new Map<number, string[]>();
   const liveAwards = awards.map((award): LiveAward => {
     if (award.event?.id && award.title) {
@@ -235,6 +309,7 @@ export async function lookupRobotEventsTeam(token: string, teamNumber: string): 
   });
 
   const recordByEvent = new Map<number, { wins: number; losses: number; ties: number }>();
+  const matchesByEvent = new Map<number, LiveMatchResult[]>();
   for (const match of matches) {
     if (
       !match.scored ||
@@ -252,10 +327,26 @@ export async function lookupRobotEventsTeam(token: string, teamNumber: string): 
     const otherAlliance = match.alliances.find((alliance) => alliance !== teamAlliance);
     if (!otherAlliance) continue;
     const record = recordByEvent.get(match.event.id) ?? { wins: 0, losses: 0, ties: 0 };
-    if (teamAlliance.score > otherAlliance.score) record.wins += 1;
-    else if (teamAlliance.score < otherAlliance.score) record.losses += 1;
+    const result = teamAlliance.score > otherAlliance.score
+      ? "Win"
+      : teamAlliance.score < otherAlliance.score
+        ? "Loss"
+        : "Tie";
+    if (result === "Win") record.wins += 1;
+    else if (result === "Loss") record.losses += 1;
     else record.ties += 1;
     recordByEvent.set(match.event.id, record);
+    const eventMatches = matchesByEvent.get(match.event.id) ?? [];
+    eventMatches.push({
+      id: match.id,
+      round: match.round ?? 0,
+      matchnum: match.matchnum ?? 0,
+      name: match.name || `Round ${match.round ?? "?"} · Match ${match.matchnum ?? "?"}`,
+      result,
+      teamScore: teamAlliance.score,
+      opponentScore: otherAlliance.score,
+    });
+    matchesByEvent.set(match.event.id, eventMatches);
   }
 
   const rankingByEvent = new Map<number, ApiRanking>();
@@ -274,18 +365,67 @@ export async function lookupRobotEventsTeam(token: string, teamNumber: string): 
     .slice()
     .sort((a, b) => Date.parse(b.start ?? "") - Date.parse(a.start ?? ""))
     .map((event): LiveTournament => {
-      const record = recordByEvent.get(event.id) ?? { wins: 0, losses: 0, ties: 0 };
+      const record = recordByEvent.get(event.id);
       const ranking = rankingByEvent.get(event.id);
+      const eventSkills = skillsByEvent.get(event.id);
       return {
         id: event.id,
         name: event.name,
         location: formatLocation(event.location),
         date: formatDate(event.start),
+        year: event.start && !Number.isNaN(Date.parse(event.start))
+          ? String(new Date(event.start).getUTCFullYear())
+          : "",
         placement: ranking?.rank ? `#${ranking.rank}` : "—",
-        record: `${record.wins}–${record.losses}–${record.ties}`,
+        record: record ? `${record.wins}–${record.losses}–${record.ties}` : null,
         award: awardsByEvent.get(event.id)?.join(", "),
+        programmingSkills: eventSkills?.programming.length
+          ? Math.max(...eventSkills.programming)
+          : null,
+        driverSkills: eventSkills?.driver.length
+          ? Math.max(...eventSkills.driver)
+          : null,
+        programmingSkillsRuns: eventSkills?.programming.length ?? 0,
+        driverSkillsRuns: eventSkills?.driver.length ?? 0,
+        matches: (matchesByEvent.get(event.id) ?? []).sort(
+          (left, right) => left.round - right.round || left.matchnum - right.matchnum,
+        ),
       };
     });
+
+  const skillsByYear: LiveTeamDetails["skillsByYear"] = {};
+  for (const event of tournaments) {
+    if (!event.year) continue;
+    const yearSkills = skillsByYear[event.year] ?? {
+      programming: null,
+      driver: null,
+      combined: null,
+      rank: null,
+      programmingRuns: 0,
+      driverRuns: 0,
+    };
+    const eventSkills = skillsByEvent.get(event.id);
+    if (eventSkills?.programming.length) {
+      const score = Math.max(...eventSkills.programming);
+      yearSkills.programming = Math.max(yearSkills.programming ?? 0, score);
+      yearSkills.programmingRuns += eventSkills.programming.length;
+    }
+    if (eventSkills?.driver.length) {
+      const score = Math.max(...eventSkills.driver);
+      yearSkills.driver = Math.max(yearSkills.driver ?? 0, score);
+      yearSkills.driverRuns += eventSkills.driver.length;
+    }
+    if (eventSkills?.ranks.length) {
+      yearSkills.rank = Math.min(yearSkills.rank ?? Infinity, ...eventSkills.ranks);
+    }
+    yearSkills.combined = yearSkills.programming !== null && yearSkills.driver !== null
+      ? yearSkills.programming + yearSkills.driver
+      : null;
+    skillsByYear[event.year] = yearSkills;
+  }
+  for (const yearSkills of Object.values(skillsByYear)) {
+    if (yearSkills.rank === Infinity) yearSkills.rank = null;
+  }
 
   const teamProgramming = programmingScores.length ? Math.max(...programmingScores) : 0;
   const teamDriver = driverScores.length ? Math.max(...driverScores) : 0;
@@ -295,6 +435,7 @@ export async function lookupRobotEventsTeam(token: string, teamNumber: string): 
   const tieTotal = [...recordByEvent.values()].reduce((total, record) => total + record.ties, 0);
 
   return {
+    fetchedAt: new Date().toISOString(),
     number: team.number,
     name: team.team_name || team.number,
     organization: team.organization || "",
@@ -309,6 +450,16 @@ export async function lookupRobotEventsTeam(token: string, teamNumber: string): 
       programming: teamProgramming,
       driver: teamDriver,
       combined: teamProgramming + teamDriver,
+    },
+    skillsByYear,
+    coverage: {
+      events: events.length,
+      programmingRuns: programmingScores.length,
+      driverRuns: driverScores.length,
+      scoredMatches: matchesByEvent.size === 0
+        ? 0
+        : [...matchesByEvent.values()].reduce((total, eventMatches) => total + eventMatches.length, 0),
+      eventsWithScoredMatches: matchesByEvent.size,
     },
     awards: liveAwards,
     tournaments,

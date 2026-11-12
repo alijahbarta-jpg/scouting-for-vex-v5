@@ -1,6 +1,6 @@
 # Scoutline
 
-Scoutline is a quick VEX V5 team lookup tool. Search a team number, compare it against the included skills snapshot, and optionally connect your RobotEvents API key to see live event details.
+Scoutline is a quick VEX V5 team lookup tool. Search a team number, compare multiple teams side by side using the included skills snapshot, and optionally connect your RobotEvents API key to see live event details.
 
 The webapp is available at:
 
@@ -11,8 +11,13 @@ The webapp is available at:
 1. Open the app in a browser.
 2. Enter a team number such as `8737M`.
 3. If the team appears in the bundled standings snapshot, you can review rank, skills scores, and location information right away.
-4. If you want more detail, paste your RobotEvents API key and the app will fetch live information from RobotEvents, including awards, events, match records, and skills results.
-5. Reloading the page clears the in-memory API key, so the app does not keep your key after you leave.
+4. Use **Compare teams** to search the snapshot by team number or name, or enter a team number directly. Compare up to four teams using snapshot standings, or connect RobotEvents and explicitly load live data for skills, event placements, match records, and awards. Calendar-year filters are based on event dates; the snapshot only provides the latest recorded score year, not a full historical archive.
+5. If you want more detail, paste your RobotEvents API key and the app will fetch live information from RobotEvents, including awards, events, match records, and skills results.
+6. Reloading the page clears the in-memory API key, so the app does not keep your key after you leave.
+
+Comparison selections, data source, comparison type, calendar year, and selected event are reflected in the page URL and can be shared. Shared links include comparison settings, not live API results, scouting notes, or an API key; each viewer must connect their own key and load live data. Use **Export CSV** to download the current comparison. Snapshot and live results are labeled separately with their data freshness and coverage; event comparisons require a RobotEvents API key and loaded live team data.
+
+Team notes and scouting tags are saved in this browser's local storage and are not sent to the app server or included in shared links. Live team results are cached in page memory, loaded one team at a time, and can be refreshed or retried. Temporary connection and rate-limit failures are retried automatically.
 
 ## Run locally
 
